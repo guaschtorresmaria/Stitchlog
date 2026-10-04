@@ -56,7 +56,7 @@ async function home(){
  ss.forEach(s=>tot[s.projectId]=(tot[s.projectId]||0)+s.ms);
  app.innerHTML=`<h1>Stitchlog</h1>${getA()?'<a class="banner" href="#run">A session is running. Open timer</a>':''}
  ${ps.sort((a,b)=>b.created-a.created).map(p=>`<a class="card" href="#p/${p.id}"><b>${esc(p.title)}</b><span class="big">${fmt(tot[p.id]||0)}</span><span class="muted">${esc(p.craft)}, ${esc(p.status.toLowerCase())}</span></a>`).join('')||'<p class="muted">No projects yet. Create one to start logging time.</p>'}
- <a class="btn" href="#new">New project</a><a class="link" href="#backup">Backup and restore</a>`}
+ <a class="btn" href="#new">New project</a><a class="link" href="#backup">Backup and restore</a><p class="muted" style="font-size:13px">Version 3</p>`}
 
 async function proj(id){
  const [ps,ss]=await Promise.all([all('projects'),all('sessions')]),p=ps.find(x=>x.id===id);if(!p)return home();
@@ -99,7 +99,7 @@ function sessionForm(projectId,title,ms,date,manual){
  <label>Minutes worked<input type="number" inputmode="numeric" id="mi" min="1" value="${Math.max(1,Math.round(ms/60000))}"></label>
  <label>Notes<textarea id="n" rows="4" placeholder="What did you work on?"></textarea></label>
  <label>Progress photos<input type="file" id="f" accept="image/*" multiple></label><div class="ph" id="pv"></div>
- <button class="btn" id="ok">Save session</button>${manual?'':'<a class="link" href="#run">Back to timer</a>'}`;
+ <button class="btn" id="ok">Save session</button>${manual?`<a class="btn2" href="#p/${projectId}">Cancel</a>`:'<a class="link" href="#run">Back to timer</a>'}`;
  const staged=[],draw=()=>{$('#pv').innerHTML=staged.map((x,i)=>`<div class="th"><img alt="Selected photo" src="${x.url}"><button type="button" class="x" data-i="${i}" aria-label="Remove photo">×</button></div>`).join('');
   $('#pv').querySelectorAll('.x').forEach(b=>b.onclick=()=>{const[x]=staged.splice(+b.dataset.i,1);URL.revokeObjectURL(x.url);draw()})};
  $('#f').onchange=e=>{for(const f of e.target.files)staged.push({f,url:URL.createObjectURL(f)});e.target.value='';draw()};
