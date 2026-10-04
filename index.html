@@ -1,12 +1,12 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Stitchlog"><meta name="theme-color" content="#1b2440">
+<meta name="apple-mobile-web-app-title" content="Stitchlog"><meta name="theme-color" content="#f6f3fb">
 <link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="icon-180.png">
 <title>Stitchlog</title>
 <style>
-:root{--bg:#f4f5f8;--fg:#1b2440;--mut:#6b7390;--ac:#d9961a;--on:#1b2440;--card:#fff;--st:#c3c9dc}
-@media(prefers-color-scheme:dark){:root{--bg:#121829;--fg:#eceef6;--mut:#98a0bd;--card:#1c2540;--st:#3a4670}}
+:root{--bg:#f6f3fb;--fg:#37314d;--mut:#6f6888;--ac:#f6b8cc;--ac2:#b9e5d3;--on:#37314d;--card:#fff;--st:#cfc6e8}
+@media(prefers-color-scheme:dark){:root{--bg:#231f33;--fg:#f0ecfa;--mut:#b3abcf;--card:#2e2942;--st:#4a4368}}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.45 -apple-system,system-ui,sans-serif;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
 #app{max-width:560px;margin:0 auto;padding:16px 16px 48px}
@@ -21,8 +21,8 @@ a{color:inherit}
 .btn,.btn2{display:block;width:100%;text-align:center;text-decoration:none;border:0;border-radius:12px;padding:14px;margin:12px 0;font:600 17px ui-rounded,system-ui,sans-serif;background:var(--ac);color:var(--on)}
 .btn2{background:transparent;color:var(--fg);border:2px solid var(--st)}
 .link{display:inline-block;margin:10px 14px 10px 0;color:var(--mut);cursor:pointer}
-.banner{display:block;background:var(--ac);color:var(--on);font-weight:600;border-radius:12px;padding:12px;margin:12px 0;text-decoration:none}
-.stats{display:flex;gap:12px;margin:16px 0}.stats div{flex:1;padding:12px;border-left:3px solid var(--ac);color:var(--mut)}.stats b{display:block;font:700 28px ui-rounded,system-ui;color:var(--fg)}
+.banner{display:block;background:var(--ac2);color:var(--on);font-weight:600;border-radius:12px;padding:12px;margin:12px 0;text-decoration:none}
+.stats{display:flex;gap:12px;margin:16px 0}.stats div{flex:1;padding:12px;border-left:4px solid var(--ac2);color:var(--mut)}.stats b{display:block;font:700 28px ui-rounded,system-ui;color:var(--fg)}
 .clock{font-size:64px;font-weight:700;text-align:center;margin:40px 0;font-variant-numeric:tabular-nums}
 label{display:block;margin:14px 0;color:var(--mut)}
 input,select,textarea{display:block;width:100%;margin-top:6px;padding:12px;font:16px inherit;font-family:inherit;color:var(--fg);background:var(--card);border:2px solid var(--st);border-radius:10px}
