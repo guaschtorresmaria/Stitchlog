@@ -1,0 +1,131 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Stitchlog"><meta name="theme-color" content="#1b2440">
+<link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="icon-180.png">
+<title>Stitchlog</title>
+<style>
+:root{--bg:#f4f5f8;--fg:#1b2440;--mut:#6b7390;--ac:#d9961a;--on:#1b2440;--card:#fff;--st:#c3c9dc}
+@media(prefers-color-scheme:dark){:root{--bg:#121829;--fg:#eceef6;--mut:#98a0bd;--card:#1c2540;--st:#3a4670}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.45 -apple-system,system-ui,sans-serif;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
+#app{max-width:560px;margin:0 auto;padding:16px 16px 48px}
+h1,h2,.big,.clock{font-family:ui-rounded,"SF Pro Rounded",system-ui,sans-serif}
+h1{font-size:30px;margin:12px 0 4px}h2{font-size:22px;margin:12px 0}h3{margin:24px 0 8px}
+.muted{color:var(--mut);margin:2px 0}
+a{color:inherit}
+.card,.card2{display:block;text-decoration:none;background:var(--card);border:2px dashed var(--st);border-radius:14px;padding:14px;margin:12px 0}
+.card{display:flex;flex-wrap:wrap;gap:2px 12px;align-items:baseline}.card b{flex:1 1 60%;font-size:18px}.big{font-size:20px;font-weight:700}
+.card span.muted{flex:1 1 60%}
+.card2 p{margin:6px 0}
+.btn,.btn2{display:block;width:100%;text-align:center;text-decoration:none;border:0;border-radius:12px;padding:14px;margin:12px 0;font:600 17px ui-rounded,system-ui,sans-serif;background:var(--ac);color:var(--on)}
+.btn2{background:transparent;color:var(--fg);border:2px solid var(--st)}
+.link{display:inline-block;margin:10px 14px 10px 0;color:var(--mut);cursor:pointer}
+.banner{display:block;background:var(--ac);color:var(--on);font-weight:600;border-radius:12px;padding:12px;margin:12px 0;text-decoration:none}
+.stats{display:flex;gap:12px;margin:16px 0}.stats div{flex:1;padding:12px;border-left:3px solid var(--ac);color:var(--mut)}.stats b{display:block;font:700 28px ui-rounded,system-ui;color:var(--fg)}
+.clock{font-size:64px;font-weight:700;text-align:center;margin:40px 0;font-variant-numeric:tabular-nums}
+label{display:block;margin:14px 0;color:var(--mut)}
+input,select,textarea{display:block;width:100%;margin-top:6px;padding:12px;font:16px inherit;font-family:inherit;color:var(--fg);background:var(--card);border:2px solid var(--st);border-radius:10px}
+.ph{display:flex;gap:6px;flex-wrap:wrap}.ph img{width:96px;height:96px;object-fit:cover;border-radius:8px}
+ul{padding-left:20px;margin:4px 0}
+</style></head><body><div id="app"></div>
+<script>
+const $=s=>document.querySelector(s),app=$('#app');
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+let db,timer;
+const openDB=()=>new Promise((res,rej)=>{const r=indexedDB.open('stitchlog',1);
+ r.onupgradeneeded=()=>{r.result.createObjectStore('projects',{keyPath:'id'});r.result.createObjectStore('sessions',{keyPath:'id'})};
+ r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
+const tx=(st,mode,fn)=>new Promise((res,rej)=>{const t=db.transaction(st,mode),q=fn(t.objectStore(st));t.oncomplete=()=>res(q&&q.result);t.onerror=()=>rej(t.error)});
+const all=st=>tx(st,'readonly',o=>o.getAll()),put=(st,v)=>tx(st,'readwrite',o=>o.put(v)),del=(st,k)=>tx(st,'readwrite',o=>o.delete(k));
+// Active session lives in localStorage; elapsed time is computed from timestamps, so it survives locking the phone.
+const getA=()=>{try{return JSON.parse(localStorage.getItem('active'))}catch{return null}};
+const setA=a=>{try{a?localStorage.setItem('active',JSON.stringify(a)):localStorage.removeItem('active')}catch{}};
+const elapsed=a=>Math.max(0,(a.pausedAt||Date.now())-a.startedAt-a.pausedMs);
+const fmt=ms=>{const s=Math.floor(ms/1000),h=Math.floor(s/3600),m=Math.floor(s%3600/60);return h?`${h}h ${m}m`:m?`${m}m`:`${s}s`};
+const clock=ms=>{const s=Math.floor(ms/1000);return[Math.floor(s/3600),Math.floor(s%3600/60),s%60].map(n=>String(n).padStart(2,'0')).join(':')};
+const localDay=t=>new Date(t-new Date(t).getTimezoneOffset()*6e4).toISOString().slice(0,10);
+async function shrink(f){const b=await createImageBitmap(f),k=Math.min(1,1280/Math.max(b.width,b.height)),c=document.createElement('canvas');
+ c.width=Math.round(b.width*k);c.height=Math.round(b.height*k);c.getContext('2d').drawImage(b,0,0,c.width,c.height);
+ return new Promise(r=>c.toBlob(r,'image/jpeg',.8))}
+
+async function home(){
+ const [ps,ss]=await Promise.all([all('projects'),all('sessions')]),tot={};
+ ss.forEach(s=>tot[s.projectId]=(tot[s.projectId]||0)+s.ms);
+ app.innerHTML=`<h1>Stitchlog</h1>${getA()?'<a class="banner" href="#run">A session is running. Open timer</a>':''}
+ ${ps.sort((a,b)=>b.created-a.created).map(p=>`<a class="card" href="#p/${p.id}"><b>${esc(p.title)}</b><span class="big">${fmt(tot[p.id]||0)}</span><span class="muted">${esc(p.craft)}, ${esc(p.status.toLowerCase())}</span></a>`).join('')||'<p class="muted">No projects yet. Create one to start logging time.</p>'}
+ <a class="btn" href="#new">New project</a><a class="link" href="#backup">Backup and restore</a>`}
+
+async function proj(id){
+ const [ps,ss]=await Promise.all([all('projects'),all('sessions')]),p=ps.find(x=>x.id===id);if(!p)return home();
+ const mine=ss.filter(s=>s.projectId===id).sort((a,b)=>b.date-a.date),tot=mine.reduce((n,s)=>n+s.ms,0);
+ app.innerHTML=`<a class="link" href="#">Back to projects</a><h1>${esc(p.title)}</h1><p class="muted">${esc(p.craft)}, ${esc(p.status.toLowerCase())}</p>
+ <div class="stats"><div><b>${fmt(tot)}</b>total time</div><div><b>${mine.length}</b>sessions</div></div>
+ ${p.materials?`<h3>Materials</h3><ul>${p.materials.split('\n').filter(Boolean).map(m=>`<li>${esc(m)}</li>`).join('')}</ul>`:''}
+ <button class="btn" id="go">Start session</button><a class="btn2" href="#manual/${id}">Add a past session</a><a class="link" href="#edit/${id}">Edit project</a>
+ <h3>Sessions</h3>${mine.map(s=>`<div class="card2"><b>${new Date(s.date).toLocaleDateString(undefined,{day:'numeric',month:'short',year:'numeric'})}</b> &nbsp;${fmt(s.ms)}${s.notes?`<p>${esc(s.notes)}</p>`:''}
+ <div class="ph">${(s.photos||[]).map(b=>`<img alt="Progress photo" src="${URL.createObjectURL(b)}">`).join('')}</div><a class="link" data-del="${s.id}">Delete session</a></div>`).join('')||'<p class="muted">No sessions yet.</p>'}`;
+ $('#go').onclick=()=>{if(getA()&&!confirm('A session is already running. Replace it?'))return;setA({projectId:id,title:p.title,startedAt:Date.now(),pausedMs:0,pausedAt:0});location.hash='run'};
+ app.querySelectorAll('[data-del]').forEach(el=>el.onclick=async()=>{if(confirm('Delete this session?')){await del('sessions',el.dataset.del);render()}})}
+
+async function form(id){
+ const p=id?(await all('projects')).find(x=>x.id===id):{title:'',craft:'Crochet',status:'In progress',materials:''};
+ const opt=(arr,v)=>arr.map(o=>`<option${o===v?' selected':''}>${o}</option>`).join('');
+ app.innerHTML=`<a class="link" href="#${id?'p/'+id:''}">Back</a><h1>${id?'Edit':'New'} project</h1>
+ <label>Title<input id="t" value="${esc(p.title)}"></label>
+ <label>Craft<select id="c">${opt(['Crochet','Knitting','Sewing','Embroidery','Other'],p.craft)}</select></label>
+ <label>Status<select id="s">${opt(['Planned','In progress','Finished','Paused'],p.status)}</select></label>
+ <label>Materials, one per line<textarea id="m" rows="5" placeholder="Drops Alpaca, 3 skeins, grey&#10;4 mm hook">${esc(p.materials)}</textarea></label>
+ <button class="btn" id="ok">Save project</button>${id?'<a class="link" id="rm">Delete project</a>':''}`;
+ $('#ok').onclick=async()=>{const t=$('#t').value.trim();if(!t)return $('#t').focus();
+  const q={...p,id:id||uid(),created:p.created||Date.now(),title:t,craft:$('#c').value,status:$('#s').value,materials:$('#m').value};
+  await put('projects',q);location.hash='p/'+q.id};
+ if(id)$('#rm').onclick=async()=>{if(!confirm('Delete this project and all its sessions?'))return;
+  for(const s of(await all('sessions')).filter(s=>s.projectId===id))await del('sessions',s.id);await del('projects',id);location.hash=''}}
+
+function run(){
+ const a=getA();if(!a){location.hash='';return}
+ app.innerHTML=`<h2>${esc(a.title)}</h2><div class="clock" id="clk"></div><button class="btn2" id="pp"></button><button class="btn" id="fin">Finish session</button><a class="link" id="disc">Discard</a>`;
+ const upd=()=>{const b=getA();if(!b)return;$('#clk').textContent=clock(elapsed(b));$('#pp').textContent=b.pausedAt?'Resume':'Pause'};
+ upd();timer=setInterval(upd,500);
+ $('#pp').onclick=()=>{const b=getA();if(b.pausedAt){b.pausedMs+=Date.now()-b.pausedAt;b.pausedAt=0}else b.pausedAt=Date.now();setA(b);upd()};
+ $('#fin').onclick=()=>location.hash='save';
+ $('#disc').onclick=()=>{if(confirm('Discard this session?')){setA(null);location.hash=''}}}
+
+function sessionForm(projectId,title,ms,date,manual){
+ app.innerHTML=`<h2>${esc(title)}</h2><label>Date<input type="date" id="d" value="${localDay(date)}"></label>
+ <label>Minutes worked<input type="number" id="mi" min="1" value="${Math.max(1,Math.round(ms/60000))}"></label>
+ <label>Notes<textarea id="n" rows="4" placeholder="What did you work on?"></textarea></label>
+ <label>Progress photos<input type="file" id="f" accept="image/*" multiple></label>
+ <button class="btn" id="ok">Save session</button>${manual?'':'<a class="link" href="#run">Back to timer</a>'}`;
+ $('#ok').onclick=async()=>{$('#ok').disabled=true;
+  const when=new Date($('#d').value+'T'+new Date(date).toTimeString().slice(0,8)),photos=await Promise.all([...$('#f').files].map(shrink));
+  await put('sessions',{id:uid(),projectId,date:+when,ms:Math.max(1,+$('#mi').value)*6e4,notes:$('#n').value.trim(),photos});
+  if(!manual)setA(null);location.hash='p/'+projectId}}
+function saveView(){const a=getA();if(!a)return home();sessionForm(a.projectId,a.title,elapsed(a),a.startedAt,false)}
+async function manual(id){const p=(await all('projects')).find(x=>x.id===id);if(p)sessionForm(id,p.title,36e5,Date.now(),true)}
+
+const b2d=b=>new Promise(r=>{const f=new FileReader();f.onload=()=>r(f.result);f.readAsDataURL(b)}),d2b=d=>fetch(d).then(r=>r.blob());
+async function exportAll(){
+ const ps=await all('projects'),ss=await all('sessions');
+ for(const s of ss)s.photos=await Promise.all((s.photos||[]).map(b2d));
+ const blob=new Blob([JSON.stringify({v:1,ps,ss})],{type:'application/json'}),f=new File([blob],`stitchlog-${localDay(Date.now())}.json`,{type:'application/json'});
+ if(navigator.canShare&&navigator.canShare({files:[f]}))try{await navigator.share({files:[f]});return}catch{}
+ const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=f.name;a.click()}
+async function importAll(file){const d=JSON.parse(await file.text());
+ for(const p of d.ps)await put('projects',p);
+ for(const s of d.ss){s.photos=await Promise.all((s.photos||[]).map(d2b));await put('sessions',s)}}
+function backup(){
+ app.innerHTML=`<a class="link" href="#">Back</a><h1>Backup and restore</h1>
+ <p class="muted">Your data only lives on this phone. Export a file regularly and save it to Files or iCloud Drive.</p>
+ <button class="btn" id="ex">Export backup</button><label>Restore from a backup file<input type="file" id="im" accept=".json,application/json"></label><p id="msg" class="muted"></p>`;
+ $('#ex').onclick=exportAll;
+ $('#im').onchange=async e=>{try{await importAll(e.target.files[0]);$('#msg').textContent='Backup restored.'}catch{$('#msg').textContent='That file could not be read as a Stitchlog backup.'}}}
+
+function render(){clearInterval(timer);const[r,id]=location.hash.slice(1).split('/');scrollTo(0,0);
+ ({'':home,p:()=>proj(id),new:()=>form(),edit:()=>form(id),run,save:saveView,manual:()=>manual(id),backup}[r]||home)()}
+addEventListener('hashchange',render);
+openDB().then(d=>{db=d;render();try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch{}});
+if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+</script></body></html>
