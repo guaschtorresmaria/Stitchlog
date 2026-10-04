@@ -1,5 +1,5 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Stitchlog"><meta name="theme-color" content="#f6f3fb">
 <link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="icon-180.png">
@@ -56,7 +56,7 @@ async function home(){
  ss.forEach(s=>tot[s.projectId]=(tot[s.projectId]||0)+s.ms);
  app.innerHTML=`<h1>Stitchlog</h1>${getA()?'<a class="banner" href="#run">A session is running. Open timer</a>':''}
  ${ps.sort((a,b)=>b.created-a.created).map(p=>`<a class="card" href="#p/${p.id}"><b>${esc(p.title)}</b><span class="big">${fmt(tot[p.id]||0)}</span><span class="muted">${esc(p.craft)}, ${esc(p.status.toLowerCase())}</span></a>`).join('')||'<p class="muted">No projects yet. Create one to start logging time.</p>'}
- <a class="btn" href="#new">New project</a><a class="link" href="#backup">Backup and restore</a><p class="muted" style="font-size:13px">Version 3</p>`}
+ <a class="btn" href="#new">New project</a><a class="link" href="#backup">Backup and restore</a><p class="muted" style="font-size:13px">Version 4</p>`}
 
 async function proj(id){
  const [ps,ss]=await Promise.all([all('projects'),all('sessions')]),p=ps.find(x=>x.id===id);if(!p)return home();
@@ -130,6 +130,8 @@ function backup(){
 function render(){clearInterval(timer);const[r,id]=location.hash.slice(1).split('/');scrollTo(0,0);
  ({'':home,p:()=>proj(id),new:()=>form(),edit:()=>form(id),run,save:saveView,manual:()=>manual(id),backup}[r]||home)()}
 addEventListener('hashchange',render);
+// iOS home-screen apps sometimes skip the keyboard on tap; focusing explicitly inside the tap fixes it.
+document.addEventListener('click',e=>{const t=e.target.closest('input,textarea');if(t&&!['file','date','checkbox'].includes(t.type)&&document.activeElement!==t)t.focus()});
 openDB().then(d=>{db=d;render();try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch{}});
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 </script></body></html>
