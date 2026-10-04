@@ -25,8 +25,9 @@ a{color:inherit}
 .stats{display:flex;gap:12px;margin:16px 0}.stats div{flex:1;padding:12px;border-left:4px solid var(--ac2);color:var(--mut)}.stats b{display:block;font:700 28px ui-rounded,system-ui;color:var(--fg)}
 .clock{font-size:64px;font-weight:700;text-align:center;margin:40px 0;font-variant-numeric:tabular-nums}
 label{display:block;margin:14px 0;color:var(--mut)}
-input,select,textarea{display:block;width:100%;margin-top:6px;padding:12px;font:16px inherit;font-family:inherit;color:var(--fg);background:var(--card);border:2px solid var(--st);border-radius:10px}
+input,select,textarea{display:block;width:100%;margin-top:6px;padding:12px;font-size:16px;font-family:inherit;-webkit-user-select:text;user-select:text;color:var(--fg);background:var(--card);border:2px solid var(--st);border-radius:10px}
 .ph{display:flex;gap:6px;flex-wrap:wrap}.ph img{width:96px;height:96px;object-fit:cover;border-radius:8px}
+.th{position:relative}.x{position:absolute;top:-6px;right:-6px;width:28px;height:28px;padding:0;border-radius:50%;border:0;background:var(--fg);color:var(--bg);font-size:18px;line-height:1}
 ul{padding-left:20px;margin:4px 0}
 </style></head><body><div id="app"></div>
 <script>
@@ -95,12 +96,15 @@ function run(){
 
 function sessionForm(projectId,title,ms,date,manual){
  app.innerHTML=`<h2>${esc(title)}</h2><label>Date<input type="date" id="d" value="${localDay(date)}"></label>
- <label>Minutes worked<input type="number" id="mi" min="1" value="${Math.max(1,Math.round(ms/60000))}"></label>
+ <label>Minutes worked<input type="number" inputmode="numeric" id="mi" min="1" value="${Math.max(1,Math.round(ms/60000))}"></label>
  <label>Notes<textarea id="n" rows="4" placeholder="What did you work on?"></textarea></label>
- <label>Progress photos<input type="file" id="f" accept="image/*" multiple></label>
+ <label>Progress photos<input type="file" id="f" accept="image/*" multiple></label><div class="ph" id="pv"></div>
  <button class="btn" id="ok">Save session</button>${manual?'':'<a class="link" href="#run">Back to timer</a>'}`;
+ const staged=[],draw=()=>{$('#pv').innerHTML=staged.map((x,i)=>`<div class="th"><img alt="Selected photo" src="${x.url}"><button type="button" class="x" data-i="${i}" aria-label="Remove photo">×</button></div>`).join('');
+  $('#pv').querySelectorAll('.x').forEach(b=>b.onclick=()=>{const[x]=staged.splice(+b.dataset.i,1);URL.revokeObjectURL(x.url);draw()})};
+ $('#f').onchange=e=>{for(const f of e.target.files)staged.push({f,url:URL.createObjectURL(f)});e.target.value='';draw()};
  $('#ok').onclick=async()=>{$('#ok').disabled=true;
-  const when=new Date($('#d').value+'T'+new Date(date).toTimeString().slice(0,8)),photos=await Promise.all([...$('#f').files].map(shrink));
+  const when=new Date($('#d').value+'T'+new Date(date).toTimeString().slice(0,8)),photos=await Promise.all(staged.map(x=>shrink(x.f)));
   await put('sessions',{id:uid(),projectId,date:+when,ms:Math.max(1,+$('#mi').value)*6e4,notes:$('#n').value.trim(),photos});
   if(!manual)setA(null);location.hash='p/'+projectId}}
 function saveView(){const a=getA();if(!a)return home();sessionForm(a.projectId,a.title,elapsed(a),a.startedAt,false)}
